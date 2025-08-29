@@ -22,6 +22,7 @@ class Logger:
             log_to_file: bool = False,
             log_level: str = "INFO"
         ):
+
         self.log_to_file = log_to_file
         self.log_level = log_level
         self.log_dir = "smartmailer_logs"
@@ -35,6 +36,10 @@ class Logger:
             log_filename = datetime.now().strftime("smartmailer-%Y-%m-%d_%H-%M-%S.log")
             log_path = os.path.join(self.log_dir, log_filename)
             self.log_file_handle = open(log_path, "w")
+
+        if log_level not in LOG_LEVELS:
+            self._log_helper(f"Log Level {log_level} not found in {LOG_LEVELS}. Defaulting to INFO.")
+            self.log_level = "INFO"
 
     def debug(self, message):
         log_level = "DEBUG"

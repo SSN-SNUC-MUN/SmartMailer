@@ -4,7 +4,7 @@ from smartmailer.session_management.db import Database
 from smartmailer.utils.strings import get_os_safe_name
 import os
 from smartmailer.config import DB_FOLDER
-from smartmailer.utils.logger import logger
+from smartmailer.utils.new_logger import Logger
 from smartmailer.utils.types import TemplateModelType
 from smartmailer.core.template import TemplateModel
 
@@ -13,7 +13,10 @@ class SessionManager:
         #Initialize connection
         self.session_name = session_name
         self.session_name_os_safe = get_os_safe_name(session_name)
-        
+        self.logger = Logger()
+        # don't need to configure,
+        # it will use the same instance we made during the SmartMailer init
+
         self.dbname = self.session_name_os_safe + ".db"
         db_folder_path = os.path.join(os.getcwd(), DB_FOLDER)
         if not os.path.exists(folder := db_folder_path):
@@ -22,9 +25,9 @@ class SessionManager:
         self.dbfile_path = os.path.join(db_folder_path, self.dbname)
         
         if os.path.exists(self.dbfile_path):
-            logger.info(f"Using existing database file: {self.dbfile_path}")
+            self.logger.info(f"Using existing database file: {self.dbfile_path}")
         else:
-            logger.info(f"Creating new database file: {self.dbfile_path}")
+            self.logger.info(f"Creating new database file: {self.dbfile_path}")
         
         #Initialize database
         self.db = Database(self.dbfile_path)
