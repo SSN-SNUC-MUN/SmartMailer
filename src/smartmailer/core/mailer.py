@@ -16,11 +16,12 @@ from smartmailer.utils.types import TemplateModelType,  TemplateModel
 
 class MailSender:
     def __init__(self, sender_email: str, password: str, provider: str = "gmail") -> None:
+        self.logger = Logger()
+        
         self._validate_email(sender_email)
         self.sender_email = sender_email
         self.password = password
         self.smtp_server, self.smtp_port = self._get_settings(provider)
-        self.logger = Logger()
 
         self.logger.info(f"MailSender initialized for {sender_email} using {provider} provider.")
 

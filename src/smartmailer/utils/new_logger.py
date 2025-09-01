@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 
-from src.smartmailer.utils.shell import get_style
+from smartmailer.utils.shell import get_style
 
 from inspect import getframeinfo, stack
 
@@ -38,7 +38,7 @@ class Logger:
             self.log_file_handle = open(log_path, "w")
 
         if log_level not in LOG_LEVELS:
-            self._log_helper(f"Log Level {log_level} not found in {LOG_LEVELS}. Defaulting to INFO.")
+            print(f"Log Level {log_level} not found in {LOG_LEVELS}. Defaulting to INFO.")
             self.log_level = "INFO"
 
     def debug(self, message):
