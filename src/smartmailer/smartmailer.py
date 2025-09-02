@@ -2,13 +2,23 @@ from smartmailer.core.mailer import MailSender
 from smartmailer.core.template import TemplateEngine
 from smartmailer.session_management.session_manager import SessionManager
 from typing import List
-from smartmailer.utils.logger import logger
+from smartmailer.utils.new_logger import Logger
 from smartmailer.utils.types import TemplateModelType
 
 
 class SmartMailer:
-    def __init__(self, sender_email: str, password: str, provider: str, session_name: str):
-        logger.info(f"Initializing SmartMailer for {sender_email} with provider {provider} and session '{session_name}'")
+    def __init__(self,
+                 sender_email: str,
+                 password: str,
+                 provider: str,
+                 session_name: str,
+                 log_to_file: bool = False,
+                 log_level: str = 'WARNING'):
+
+        # todo: use the new logger everywhere
+        self.logger = Logger(log_to_file=log_to_file, log_level=log_level)
+
+        self.logger.info(f"Initializing SmartMailer for {sender_email} with provider {provider} and session '{session_name}'")
         self.mailer = MailSender(sender_email, password, provider)
         self.session_manager = SessionManager(session_name)
         # print(f"SmartMailer initialized for {sender_email} with provider {provider} and session '{session_name}'")
@@ -30,7 +40,7 @@ class SmartMailer:
         all_cc = cc or []
         all_bcc = bcc or []
     
-        logger.info(f"Preparing to send emails to {len(recipients)} recipients.")
+        self.logger.info(f"Preparing to send emails to {len(recipients)} recipients.")
 
         
         sent = self.session_manager.filter_sent_recipients(recipients)
@@ -67,7 +77,7 @@ class SmartMailer:
 
                 rendered_emails.append(rendered_email)
             except Exception as e:
-                logger.error(f"Error rendering email for {recipient.__dict__[email_field]}: {e}")
+                self.logger.error(f"Error rendering email for {recipient.__dict__[email_field]}: {e}")
                 print(f"Error rendering email for {recipient.__dict__[email_field]}: {e}")
 
         self.mailer.send_bulk_mail(
@@ -78,12 +88,12 @@ class SmartMailer:
             session_manager=self.session_manager
         )
 
-        logger.info('Completed sending emails.')
+        self.logger.info('Completed sending emails.')
         print("Completed sending emails.")
 
     def show_sent(self):
         sent = self.session_manager.get_sent_recipients()
-        logger.info(f"Fetched {len(sent)} sent recipients.")
+        self.logger.info(f"Fetched {len(sent)} sent recipients.")
         print("Sent Recipients:")
         for entry in sent:
             print(entry)

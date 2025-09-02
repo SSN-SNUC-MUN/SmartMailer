@@ -11,16 +11,19 @@ from typing import Optional, Any
 
 from smartmailer.core.template import TemplateEngine
 from smartmailer.session_management.session_manager import SessionManager
-from smartmailer.utils.logger import logger
+from smartmailer.utils.new_logger import Logger
 from smartmailer.utils.types import TemplateModelType,  TemplateModel
 
 class MailSender:
     def __init__(self, sender_email: str, password: str, provider: str = "gmail") -> None:
+        self.logger = Logger()
+        
         self._validate_email(sender_email)
         self.sender_email = sender_email
         self.password = password
         self.smtp_server, self.smtp_port = self._get_settings(provider)
-        logger.info(f"MailSender initialized for {sender_email} using {provider} provider.")
+
+        self.logger.info(f"MailSender initialized for {sender_email} using {provider} provider.")
 
     def _get_settings(self, provider: str) -> tuple[str, int]:
         settings_path = os.path.join(os.path.dirname(__file__), "settings.json")
@@ -28,7 +31,7 @@ class MailSender:
             settings: dict[str, list[Any]] = json.load(f)
 
         if provider not in settings:
-            logger.error(f"Provider '{provider}' not found in settings.")
+            self.logger.error(f"Provider '{provider}' not found in settings.")
             raise ValueError("Invalid provider.")
         return tuple(settings[provider])  # type: ignore
 
@@ -39,7 +42,7 @@ class MailSender:
 
     def _validate_email(self, email: str) -> bool:
         if not self._is_valid_email(email):
-            logger.error(f"Invalid email address: {email}")
+            self.logger.error(f"Invalid email address: {email}")
             raise ValueError("Invalid email address format.")
         return True
     
@@ -84,7 +87,7 @@ class MailSender:
                         part['Content-Disposition'] = f'attachment; filename="{os.path.basename(file_path)}"'
                         msg.attach(part)
                 except Exception as e:
-                    logger.warning(f"Couldn't attach file '{file_path}': {e}")
+                    self.logger.warning(f"Couldn't attach file '{file_path}': {e}")
         return msg
         
 
@@ -103,7 +106,7 @@ class MailSender:
         self._validate_email(to_email)
 
         if not text_content and not html_content:
-            logger.warning("Attempted to send an email with no content.")
+            self.logger.warning("Attempted to send an email with no content.")
             raise ValueError("At least one content type must be provided.")
 
         msg = self.prepare_message(
@@ -119,10 +122,10 @@ class MailSender:
             server.sendmail(self.sender_email,
                             [to_email] + (cc or []) + (bcc or []), 
                             msg.as_string())
-            logger.info(f"Email sent to {to_email} successfully.")
+            self.logger.info(f"Email sent to {to_email} successfully.")
             return True
         except Exception as e:
-            logger.error(f"Couldn't send email to {to_email}: {e}")
+            self.logger.error(f"Couldn't send email to {to_email}: {e}")
             return False
         
     def preview_email(self, example: dict[str, Any]) -> None:
@@ -151,7 +154,7 @@ class MailSender:
             server = smtplib.SMTP(self.smtp_server, self.smtp_port)
             server.starttls()
             server.login(self.sender_email, self.password)
-            logger.info(f"Connected to SMTP server {self.smtp_server} as {self.sender_email}")
+            self.logger.info(f"Connected to SMTP server {self.smtp_server} as {self.sender_email}")
         
             first = recipients[0]
             self.preview_email(first)
@@ -159,10 +162,10 @@ class MailSender:
             try:
                 time.sleep(5)
             except KeyboardInterrupt:
-                logger.info("Email sending canceled by user.")
+                self.logger.info("Email sending canceled by user.")
                 if server and not server_closed:
                     server.quit()
-                    logger.info("SMTP server connection closed.")
+                    self.logger.info("SMTP server connection closed.")
                     server_closed = True
                 sys.exit(0)
 
@@ -178,7 +181,7 @@ class MailSender:
                         r_bcc = row.get("bcc", bcc)
 
                         if not to_email:
-                            logger.error("Recipient email address is missing.")
+                            self.logger.error("Recipient email address is missing.")
                             continue
 
                     
@@ -197,30 +200,30 @@ class MailSender:
                             session_manager.add_recipient(object)
 
                         if not sent:
-                            logger.warning(f"Couldn't send email to {to_email}.")
+                            self.logger.warning(f"Couldn't send email to {to_email}.")
 
                     except KeyboardInterrupt:
-                        logger.info("Email sending canceled by user.")
+                        self.logger.info("Email sending canceled by user.")
                         if server and not server_closed:
                             server.quit()
-                            logger.info("SMTP server connection closed.")
+                            self.logger.info("SMTP server connection closed.")
                             server_closed = True
                         sys.exit(0)
 
                     except Exception as e:
-                        logger.error(f"Error during email sending: {e}")
+                        self.logger.error(f"Error during email sending: {e}")
                         continue
 
         except KeyboardInterrupt:
-            logger.info("Email sending canceled by user.")
+            self.logger.info("Email sending canceled by user.")
         except Exception as e:
-            logger.error(f"Error connecting to server: {e}")
+            self.logger.error(f"Error connecting to server: {e}")
         finally:
             if server and not server_closed:
                 try:
                     server.quit()
-                    logger.info("SMTP server connection closed.")
+                    self.logger.info("SMTP server connection closed.")
                 except Exception as e:
-                    logger.error(f"Error closing SMTP server connection: {e}")
+                    self.logger.error(f"Error closing SMTP server connection: {e}")
                 finally:
                     sys.exit(0)

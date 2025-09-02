@@ -2,7 +2,6 @@ import pytest
 from unittest.mock import patch, MagicMock, mock_open
 from smartmailer.core.mailer import MailSender
 import smtplib
-import builtins
 
 SETTINGS_JSON = '{"gmail": ["smtp.gmail.com", 587]}'
 
@@ -135,6 +134,7 @@ def test_send_individual_mail_no_content(mock_path, mock_file):
 
 def test_validate_invalid_email():
     sender = MailSender.__new__(MailSender)
+    sender.logger = MagicMock()
     with pytest.raises(ValueError):
         sender._validate_email("bad-email")
 
