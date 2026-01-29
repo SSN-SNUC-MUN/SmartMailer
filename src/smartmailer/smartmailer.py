@@ -1,5 +1,5 @@
 from smartmailer.core.mailer import MailSender
-from smartmailer.core.template import TemplateEngine
+from smartmailer.core.template.engine import AbstractTemplateEngine
 from smartmailer.session_management.session_manager import SessionManager
 from typing import List
 from smartmailer.utils.new_logger import Logger
@@ -28,7 +28,7 @@ class SmartMailer:
         self,
         recipients: List[TemplateModelType],
         email_field: str,
-        template: TemplateEngine,
+        template: AbstractTemplateEngine,
         attachment_paths = None,
         cc = None,
         bcc= None,
