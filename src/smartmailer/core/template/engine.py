@@ -42,14 +42,26 @@ class TemplateEngine:
         self.html = html
     
     def _validate_single(self, template: str, model: AbstractTemplateModel) -> None:
-        data = model.to_dict()
+        if hasattr(model, "to_dict"):
+            data = model.to_dict()
+        elif hasattr(model, "model_dump"):   # pydantic support
+            data = model.model_dump()
+        else:
+            data = model.__dict__
+
         template_vars = self.parser.extract_variables(template)
 
         self.validator.validate_schema(data)
         self.validator.validate_template(template_vars, set(data.keys()))
 
     def _render_single(self, template: str, model: AbstractTemplateModel) -> str:
-        data = model.to_dict()
+        if hasattr(model, "to_dict"):
+            data = model.to_dict()
+        elif hasattr(model, "model_dump"):   # pydantic support
+            data = model.model_dump()
+        else:
+            data = model.__dict__
+
         return self.renderer.render(template, data)
 
     def validate(self, model: AbstractTemplateModel) -> None:
@@ -58,16 +70,16 @@ class TemplateEngine:
         Fail-fast if any template is invalid.
         """
 
-        if self.subject:
+        if self.subject is not None:
             self._validate_single(self.subject, model)
 
-        if self.text:
+        if self.text is not None:
             self._validate_single(self.text, model)
 
-        if self.html:
+        if self.html is not None:
             self._validate_single(self.html, model)
 
-    def render(self, model: AbstractTemplateModel) -> Dict[str, str]:
+    def render(self, model: AbstractTemplateModel) -> Dict[str, Optional[str]]:
         """
         Validate all templates and render subject, text, and html.
         """
@@ -75,19 +87,18 @@ class TemplateEngine:
         # Ensure schema & template correctness FIRST
         self.validate(model)
 
-        result = {
+        result: Dict[str, Optional[str]] = {
             "subject": None,
             "text": None,
             "html": None,
         }
 
-        if self.subject:
+        if self.subject is not None:
             result["subject"] = self._render_single(self.subject, model)
 
-        if self.text:
+        if self.text is not None:
             result["text"] = self._render_single(self.text, model)
-
-        if self.html:
+        if self.html is not None:
             result["html"] = self._render_single(self.html, model)
 
         return result

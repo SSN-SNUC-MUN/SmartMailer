@@ -21,7 +21,6 @@ class Database:
 
         self.logger.info(f"Initializing database at {dbfile_path}")
         self.engine = create_engine(f"sqlite:///{dbfile_path}")
-        self.engine.connect()
         self.meta = db.MetaData()
 
         self._sent = Table(
@@ -36,11 +35,20 @@ class Database:
         assert self.engine is not None, "Engine is not initialized."
         self.meta.create_all(self.engine)
     
-    def insert_recipient(self, recipient_hash: str) -> int:
+    def insert_recipient(self, recipient_hash: str) -> int | None:
         with Session(self.engine) as session:
-            command = self._sent.insert().values(recipient_hash=recipient_hash, sent_time=datetime.datetime.now())
+            command = self._sent.insert().prefix_with("OR IGNORE").values(
+                recipient_hash=recipient_hash,
+                sent_time=datetime.datetime.now()
+            )
+
             result = session.execute(command)
             session.commit()
+
+            if result.rowcount == 0:
+                self.logger.info(f"Recipient {recipient_hash} already exists. Skipping insert.")
+                return None
+
             self.logger.info(f"Recipient {recipient_hash} inserted successfully.")
             return result.lastrowid
 

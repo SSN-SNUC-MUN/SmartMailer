@@ -1,3 +1,5 @@
+import smartmailer
+from smartmailer.core.template.engine import TemplateEngine
 from smartmailer.core.mailer import MailSender
 from smartmailer.core.template.engine import AbstractTemplateEngine
 from smartmailer.session_management.session_manager import SessionManager

@@ -4,3 +4,8 @@ omit =
     */settings.json
     smartmailer/config.py
     smartmailer/utils/types.py
+
+[report]
+exclude_lines =
+    @abstractmethod
+    pass

@@ -35,7 +35,7 @@ class TemplateModel(AbstractTemplateModel):
         return self
     
     def to_dict(self) -> Dict[str, object]:
-        return self.model_dump()
+        return self.model_dump(exclude={"hash_string"})
 
     @computed_field
     @property

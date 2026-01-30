@@ -134,7 +134,6 @@ def test_send_individual_mail_no_content(mock_path, mock_file):
 
 def test_validate_invalid_email():
     sender = MailSender.__new__(MailSender)
-    sender.logger = MagicMock()
     with pytest.raises(ValueError):
         sender._validate_email("bad-email")
 

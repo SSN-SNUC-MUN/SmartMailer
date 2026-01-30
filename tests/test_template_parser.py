@@ -1,7 +1,9 @@
-from src.smartmailer.core.template.parser import TemplateParser
+from smartmailer.core.template.parser import JinjaTemplateParser
+from jinja2 import Environment
 
 def test_parser_extracts_variables():
-    parser = TemplateParser()
+    env = Environment()
+    parser = JinjaTemplateParser(env)
 
     template = "Hello {{ name }}, welcome to {{ college }}"
 
@@ -11,13 +13,15 @@ def test_parser_extracts_variables():
 
 
 def test_parser_empty_string():
-    parser = TemplateParser()
+    env = Environment()
+    parser = JinjaTemplateParser(env)
     template = ""
     vars = parser.extract_variables(template)
     assert vars == set()
 
 def test_parser_strips_spaces():
-    parser = TemplateParser()
+    env = Environment()
+    parser = JinjaTemplateParser(env)
     template = "Hi {{   name   }}"
     vars = parser.extract_variables(template)
     assert vars == {"name"}

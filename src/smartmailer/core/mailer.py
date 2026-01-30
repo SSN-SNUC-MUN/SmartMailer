@@ -41,7 +41,9 @@ class MailSender:
 
     def _validate_email(self, email: str) -> bool:
         if not self._is_valid_email(email):
-            self.logger.error(f"Invalid email address: {email}")
+            logger = getattr(self, "logger", None)
+            if logger:
+                logger.error(f"Invalid email address: {email}")
             raise ValueError("Invalid email address format.")
         return True
     
@@ -127,7 +129,7 @@ class MailSender:
             self.logger.error(f"Couldn't send email to {to_email}: {e}")
             return False
         
-    def preview_email(self, example: dict[str, Any], timer:int) -> None:
+    def preview_email(self, example: dict[str, Any], timer:int=5) -> None:
         print("\nPREVIEW:")
         print(f"To          : {example.get('to_email')}")
         print(f"Subject     : {example.get('subject')}")

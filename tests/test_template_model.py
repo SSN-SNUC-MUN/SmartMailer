@@ -1,6 +1,6 @@
 from pydantic import ValidationError
 import pytest
-from src.smartmailer.core.template.model import TemplateModel
+from smartmailer.core.template.model import TemplateModel
 
 def test_template_model_valid():
     class UserTemplate(TemplateModel):
@@ -20,3 +20,13 @@ def test_template_model_invalid_field_name():
             Name: str
 
         BadTemplate(Name="test")
+
+def test_template_model_to_dict():
+    class UserTemplate(TemplateModel):
+        name: str
+        age: int
+
+    model = UserTemplate(name="ABC", age=20)
+    data = model.to_dict()
+
+    assert data == {"name": "ABC", "age": 20}
