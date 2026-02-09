@@ -22,3 +22,12 @@ def test_template_model_invalid_field_name():
         BadTemplate(Name="test")
 
 
+def test_model_empty_schema():
+    class EmptyTemplate(TemplateModel):
+        pass
+
+    model = EmptyTemplate()
+    assert model.to_dict() == {}
+
+
+

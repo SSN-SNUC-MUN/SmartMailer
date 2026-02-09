@@ -51,7 +51,6 @@ class TemplateEngine:
 
         template_vars = self.parser.extract_variables(template)
 
-        self.validator.validate_schema(data)
         self.validator.validate_template(template_vars, set(data.keys()))
 
     def _render_single(self, template: str, model: AbstractTemplateModel) -> str:

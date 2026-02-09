@@ -1,25 +1,6 @@
 import pytest
 from smartmailer.core.template.validator import TemplateValidator
 
-def test_validate_schema_valid_data():
-    validator = TemplateValidator()
-    data: dict[str, object] = {"username": "abc", "email": "a@b.com"}
-    validator.validate_schema(data)
-
-
-def test_validate_schema_invalid_key():
-    validator = TemplateValidator()
-    data: dict[str, object] = {"UserName": "abc"}
-    with pytest.raises(ValueError):
-        validator.validate_schema(data)
-
-def test_validate_schema_empty_data():
-    validator = TemplateValidator()
-    data: dict[str, object] = {}
-    validator.validate_schema(data)
-
-
-
 
 def test_validate_template_match():
     validator = TemplateValidator()

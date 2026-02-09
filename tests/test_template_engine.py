@@ -163,5 +163,4 @@ def test_validator_called(parser, validator, renderer, model):
 
     engine.render(model)
 
-    validator.validate_schema.assert_called_once()
     validator.validate_template.assert_called_once()
