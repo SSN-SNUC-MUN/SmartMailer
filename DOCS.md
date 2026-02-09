@@ -14,7 +14,7 @@ The process is not as straightforward as "pip install smartmailer", and we're wo
 Until then,
 
 ```shell
-pip install sqlalchemy tabulate pydantic
+pip install sqlalchemy tabulate pydantic jinja2
 
 pip install -i https://test.pypi.org/simple/ smartmailer==0.0.3
 ```
@@ -25,10 +25,31 @@ Or,
 pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ smartmailer
 ```
 
+### Gmail App Password Setup
+
+To send emails using Gmail, you need to generate an **App Password** instead of your regular Gmail password. Follow these steps:
+
+1. **Enable 2-Step Verification**
+   - Go to your [Google Account Security Settings](https://myaccount.google.com/security)
+   - Click on "2-Step Verification" and follow the prompts to enable it
+
+2. **Generate an App Password**
+   - After enabling 2-Step Verification, go to [App Passwords](https://myaccount.google.com/apppasswords)
+   - Select "Mail" as the app and "Other (Custom Name)" as the device
+   - Name it something like "SmartMailer"
+   - Click "Generate" and copy the 16-character password shown
+
+3. **Use the App Password in SmartMailer**
+   - Use this 16-character password (without spaces) as the `password` argument when initializing `SmartMailer`
+
+**NOTE**: App Passwords can only be generated if 2-Step Verification is enabled on your Google account. Keep your App Password secure and do not share it.
+
 ### Importing and Using the Library
 
 ```python
 from smartmailer import SmartMailer, TemplateModel, TemplateEngine
+from smartmailer.core.template import JinjaTemplateParser, JinjaTemplateRenderer, TemplateValidator
+from jinja2 import Environment
 
 ```
 
@@ -55,12 +76,13 @@ Next up, we define the templates for our subject and body.
 
 ### Defining Templates
 
-- Template variables can be defined by wrapping the variable name with **Double Curly Braces**
-- For example, `{{ name }}` is a variable with key "name".
-- This variable name corresponds to the `MySchema` field you defined previously.
+SmartMailer uses **Jinja2** for templating. Jinja2 is a powerful templating engine that allows you to use variables, conditionals, loops, and more.
+
+- Template variables are defined using **Double Curly Braces**: `{{ variable_name }}`
+- Variable names correspond to the `MySchema` fields you defined previously.
 - Whitespaces between the variable name and the curly braces are optional, but we recommend them for better readability.
 
-**NOTE**: Variable names must consist of either **lowercase alphanumeric characters, or underscore**. No other character is allowed.
+**NOTE**: Variable names must match the field names in your schema exactly. All field names **must be lowercase Python identifiers** (e.g., `name`, `email`, `committee_name`). Uppercase characters or special characters will cause validation errors.
 
 Now, let's define the templates for the subject and body in these two files:
 
@@ -80,7 +102,7 @@ Regards,
 The Organizing Committee
 ```
 
-Let's load them into string objects, and initialize our Template Engine with the required data.
+Let's load them into string objects, and initialize our Template Engine with the required components.
 
 ```python
 with open("body.txt", "r") as f:
@@ -89,7 +111,51 @@ with open("body.txt", "r") as f:
 with open("subject.txt", "r") as f:
     subject = f.read()
 
-template = TemplateEngine(subject=subject, body_text=body)
+# Create Jinja2 environment
+env = Environment()
+
+# Initialize the template components
+parser = JinjaTemplateParser(env)
+renderer = JinjaTemplateRenderer(env)
+validator = TemplateValidator()
+
+# Create the template engine with all components
+template = TemplateEngine(
+    parser=parser,
+    validator=validator,
+    renderer=renderer,
+    subject=subject,
+    text=body
+)
+```
+
+### Advanced Jinja2 Features
+
+**Conditionals:**
+
+```text
+Dear {{ name }},
+{% if allotment %}
+You have been assigned: {{ allotment }}
+{% else %}
+Your allotment is pending.
+{% endif %}
+```
+
+**Loops (if your data contains lists):**
+
+```text
+Your committees:
+{% for item in committees %}
+- {{ item }}
+{% endfor %}
+```
+
+**Filters:**
+
+```text
+Dear {{ name | upper }},
+Your email is: {{ email | lower }}
 ```
 
 ## Loading Data
@@ -106,7 +172,7 @@ recipients = [
     {"name": "John", "committee": "ECOSOC", "allotment": "Algeria", "email": "myEmail@snuchennai.edu.in"},
 ]
 
-obj_recipients = [MySchema(name=recipient['name'], committee=recipient['country'], allotment=recipient['allotment'], email= recipient['email'])  for recipient in recipients]
+obj_recipients = [MySchema(name=recipient['name'], committee=recipient['committee'], allotment=recipient['allotment'], email= recipient['email'])  for recipient in recipients]
 ```
 
 ### Sending the Emails
@@ -119,7 +185,7 @@ Currently supported options are: `"gmail"` and `"outlook"`. (case sensitive).
 ```python
 smartmailer = SmartMailer(
     sender_email="myEmail@gmail.com",
-    password="myPass",
+    password="your-16-char-app-password",  # Use App Password for Gmail
     provider="gmail",
     session_name="test"
 )
@@ -200,3 +266,48 @@ smartmailer.send_emails(
 ```
 
 That's it! Your emails will now include CC, BCC, and any attachments (all file types supported) you specify for each recipient.
+
+## HTML Emails
+
+SmartMailer supports sending HTML emails alongside plain text. When creating your template engine, you can specify both `text` and `html` content:
+
+```python
+html_body = """
+<html>
+<body>
+    <h1>Welcome, {{ name }}!</h1>
+    <p>You are assigned to the <strong>{{ committee }}</strong> committee.</p>
+    <p>Your allotment: <em>{{ allotment }}</em></p>
+</body>
+</html>
+"""
+
+template = TemplateEngine(
+    parser=parser,
+    validator=validator,
+    renderer=renderer,
+    subject=subject,
+    text=body,
+    html=html_body
+)
+```
+
+When both `text` and `html` are provided, the email will be sent as a multipart message, allowing email clients to display whichever format they prefer.
+
+## Outlook Configuration
+
+For Outlook/Hotmail accounts, use the following configuration:
+
+```python
+smartmailer = SmartMailer(
+    sender_email="myEmail@outlook.com",
+    password="your-outlook-password",
+    provider="outlook",
+    session_name="outlook-session"
+)
+```
+
+**NOTE**: For personal Outlook accounts, you may need to enable SMTP in your Outlook settings:
+1. Go to [Outlook Settings](https://outlook.live.com/mail/0/options/mail/accounts)
+2. Navigate to "Sync email"
+3. Enable "Let devices and apps use POP" (this also enables SMTP)
