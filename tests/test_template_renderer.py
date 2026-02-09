@@ -39,3 +39,56 @@ def test_renderer_invalid_template_syntax():
         renderer.render(template, data)
 
     assert "Jinja rendering failed" in str(exc.value)
+
+
+def test_renderer_conditionals():
+    env = Environment()
+    renderer = JinjaTemplateRenderer(env)
+
+    template = "{% if premium %}VIP{% else %}Normal{% endif %}"
+    out = renderer.render(template, {"premium": True})
+
+    assert out == "VIP"
+
+
+
+def test_renderer_loop():
+    env = Environment()
+    renderer = JinjaTemplateRenderer(env)
+
+    template = "{% for item in items %}{{ item }} {% endfor %}"
+    out = renderer.render(template, {"items": [1,2,3]})
+
+    assert out == "1 2 3 "
+
+
+def test_renderer_filters():
+    env = Environment()
+    renderer = JinjaTemplateRenderer(env)
+
+    template = "{{ name | upper }}"
+    out = renderer.render(template, {"name": "abc"})
+
+    assert out == "ABC"
+
+
+def test_renderer_nested_access():
+    env = Environment()
+    renderer = JinjaTemplateRenderer(env)
+
+    template = "{{ user.name }}"
+    data = {"user": {"name": "abc"}}
+
+    out = renderer.render(template, data)
+    assert out == "abc"
+
+
+def test_renderer_default_filter():
+    env = Environment()
+    renderer = JinjaTemplateRenderer(env)
+
+    template = "{{ name | default('Guest') }}"
+    out = renderer.render(template, {})
+
+    assert out == "Guest"
+
