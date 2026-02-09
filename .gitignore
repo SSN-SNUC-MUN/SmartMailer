@@ -196,3 +196,4 @@ logs/
 mail_sessions/
 subject.txt
 body.txt
+should_be_ignored.db

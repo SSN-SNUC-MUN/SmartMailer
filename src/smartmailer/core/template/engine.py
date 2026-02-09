@@ -79,13 +79,12 @@ class TemplateEngine:
         if self.html is not None:
             self._validate_single(self.html, model)
 
-    def render(self, model: AbstractTemplateModel) -> Dict[str, Optional[str]]:
+    def render(self, model: AbstractTemplateModel, validate: bool = True) -> Dict[str, Optional[str]]:
         """
         Validate all templates and render subject, text, and html.
         """
-
-        # Ensure schema & template correctness FIRST
-        self.validate(model)
+        if validate:
+            self.validate(model)
 
         result: Dict[str, Optional[str]] = {
             "subject": None,
