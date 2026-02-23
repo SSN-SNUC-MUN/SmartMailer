@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+from typing import Optional, TextIO
 
 from smartmailer.utils.shell import get_style
 
@@ -12,7 +13,7 @@ LOG_LEVELS = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 class Logger:
     _instance = None
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, *args, **kwargs) -> "Logger":
         if not cls._instance:
             cls._instance = super().__new__(cls)
         return cls._instance
@@ -21,12 +22,12 @@ class Logger:
             self,
             log_to_file: bool = False,
             log_level: str = "INFO"
-        ):
+        ) -> None:
 
         self.log_to_file = log_to_file
         self.log_level = log_level
         self.log_dir = "smartmailer_logs"
-        self.log_file_handle = None
+        self.log_file_handle: Optional[TextIO] = None
         self.log_line_format = '%Y-%m-%d %H:%M:%S'
         self.cwd = os.getcwd()
 
@@ -43,28 +44,28 @@ class Logger:
             self.log_file_handle = open(log_path, "w")
 
 
-    def debug(self, message):
+    def debug(self, message: str) -> None:
         log_level = "DEBUG"
         self._log_helper(message, log_level, datetime.now())
 
-    def info(self, message):
+    def info(self, message: str) -> None:
         log_level = "INFO"
         self._log_helper(message, log_level, datetime.now())
 
-    def warning(self, message):
+    def warning(self, message: str) -> None:
         log_level = "WARNING"
         self._log_helper(message, log_level, datetime.now())
 
-    def error(self, message):
+    def error(self, message: str) -> None:
         log_level = "ERROR"
         self._log_helper(message, log_level, datetime.now())
 
-    def critical(self, message):
+    def critical(self, message: str) -> None:
         log_level = "CRITICAL"
         self._log_helper(message, log_level, datetime.now())
 
 
-    def _log_helper(self, message: str, log_level: str, timestamp: datetime):
+    def _log_helper(self, message: str, log_level: str, timestamp: datetime) -> None:
         caller = getframeinfo(stack()[2][0])
         # entry 0 is this function
         # entry 1 is what called _log_helper - which is the debug(), info() and family
@@ -77,7 +78,7 @@ class Logger:
         if LOG_LEVELS.index(self.log_level) <= LOG_LEVELS.index(log_level):
             self._dispatch_message(message, f"{filename} L{caller.lineno}", log_level, timestamp)
 
-    def _dispatch_message(self, message: str, file_or_context: str, log_level: str, datetime: datetime):
+    def _dispatch_message(self, message: str, file_or_context: str, log_level: str, datetime: datetime) -> None:
         string = f"{datetime.strftime(self.log_line_format)} | {log_level} | {file_or_context} | {message}"
         if self.log_to_file:
             self.log_file_handle.write(string)

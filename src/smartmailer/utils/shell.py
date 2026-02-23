@@ -8,7 +8,7 @@ BOLD = "\033[1m"
 UNDERLINE = "\033[4m"
 END_FORMATTING = "\033[0m"
 
-def get_style(color):
+def get_style(color: str) -> str:
     lookup = {
         "red": RED,
         "green": GREEN,
