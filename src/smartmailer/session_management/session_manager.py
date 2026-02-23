@@ -28,13 +28,13 @@ class SessionManager:
             self.logger.info(f"Using existing database file: {self.dbfile_path}")
         else:
             self.logger.info(f"Creating new database file: {self.dbfile_path}")
-        
+
         #Initialize database
         self.db = Database(self.dbfile_path)
     
     #Filter the recipients whose email wasn't sent in the previous run
     def _filter_unsent_recipients(self, recipients: List[TemplateModelType]) -> List[TemplateModelType]:
-        unsent_recipients = []
+        unsent_recipients: List[TemplateModelType] = []
         for recipient in recipients:
             recipient_hash = recipient.hash_string
             if not self.db.check_recipient_sent(recipient_hash):
@@ -42,7 +42,7 @@ class SessionManager:
         return unsent_recipients
     
     def filter_sent_recipients(self, recipients: List[TemplateModelType]) -> List[TemplateModelType]:
-        sent =  [r['recipient_hash'] for r in self.db.get_sent_recipients()]
+        sent: List[str] = [r['recipient_hash'] for r in self.db.get_sent_recipients()]
         return [recipient for recipient in recipients if recipient.hash_string in sent]
     
     def get_sent_recipients(self) -> List[Dict[str, Any]]:
