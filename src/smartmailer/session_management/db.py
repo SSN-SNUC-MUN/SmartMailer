@@ -6,21 +6,16 @@ from typing import List, Dict, Any, Optional
 from smartmailer.utils.new_logger import Logger
 
 class Database:
-    _instance = None
-    
-    # This will be a singleton class
-    def __new__(cls, *args, **kwargs):
-        if Database._instance is None:
-            Database._instance = object.__new__(cls)
-            Database._instance.__init__(*args, **kwargs)
-
-        return Database._instance
     
     def __init__(self, dbfile_path: str):
         self.logger = Logger()
+        self.dbfile_path = dbfile_path
 
         self.logger.info(f"Initializing database at {dbfile_path}")
-        self.engine = create_engine(f"sqlite:///{dbfile_path}")
+        self.engine = create_engine(
+            f"sqlite:///{dbfile_path}",
+            connect_args={"check_same_thread": False}
+        )
         self.meta = db.MetaData()
 
         self._sent = Table(
@@ -51,6 +46,19 @@ class Database:
 
             self.logger.info(f"Recipient {recipient_hash} inserted successfully.")
             return result.lastrowid
+
+    def batch_insert_recipients(self, recipient_hashes: List[str]) -> None:
+        if not recipient_hashes:
+            return
+
+        with Session(self.engine) as session:
+            now = datetime.datetime.now()
+            values = [{"recipient_hash": h, "sent_time": now} for h in recipient_hashes]
+            command = self._sent.insert().prefix_with("OR IGNORE").values(values)
+            
+            session.execute(command)
+            session.commit()
+            self.logger.info(f"Batch inserted {len(recipient_hashes)} recipient(s).")
 
     def check_recipient_sent(self, recipient_hash: str) -> bool:
         with Session(self.engine) as session:
@@ -92,7 +100,6 @@ class Database:
             self.engine.dispose()
             self.engine = None
             self.meta = None
-            Database._instance = None
     
     def __del__(self):
         self.close()
