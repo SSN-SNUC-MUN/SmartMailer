@@ -1,6 +1,6 @@
 from tabulate import tabulate
 from typing import List, Dict, Any
-from smartmailer.session_management.db import Database
+from smartmailer.session_management.db_operator import DBOperator
 from smartmailer.utils.strings import get_os_safe_name
 import os
 from smartmailer.config import DB_FOLDER
@@ -29,29 +29,29 @@ class SessionManager:
         else:
             self.logger.info(f"Creating new database file: {self.dbfile_path}")
 
-        #Initialize database
-        self.db = Database(self.dbfile_path)
+        # Initialize database operator
+        self.db_op = DBOperator(self.dbfile_path)
     
     #Filter the recipients whose email wasn't sent in the previous run
     def _filter_unsent_recipients(self, recipients: List[TemplateModelType]) -> List[TemplateModelType]:
         unsent_recipients: List[TemplateModelType] = []
         for recipient in recipients:
             recipient_hash = recipient.hash_string
-            if not self.db.check_recipient_sent(recipient_hash):
+            if not self.db_op.check_recipient_sent(recipient_hash):
                 unsent_recipients.append(recipient)
         return unsent_recipients
     
     def filter_sent_recipients(self, recipients: List[TemplateModelType]) -> List[TemplateModelType]:
-        sent: List[str] = [r['recipient_hash'] for r in self.db.get_sent_recipients()]
+        sent: List[str] = [r['recipient_hash'] for r in self.db_op.get_sent_recipients()]
         return [recipient for recipient in recipients if recipient.hash_string in sent]
     
     def get_sent_recipients(self) -> List[Dict[str, Any]]:
-        return self.db.get_sent_recipients()
+        return self.db_op.get_sent_recipients()
     
     def add_recipient(self, recipient: TemplateModel) -> None:
         recipient_hash = recipient.hash_string
-        if not self.db.check_recipient_sent(recipient_hash):
-            self.db.insert_recipient(recipient_hash)
+        if not self.db_op.check_recipient_sent(recipient_hash):
+            self.db_op.add_to_db(recipient_hash)
 
     def get_current_session_id(self) -> str:
         return self.session_name_os_safe
