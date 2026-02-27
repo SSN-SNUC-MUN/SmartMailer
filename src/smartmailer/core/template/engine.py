@@ -61,7 +61,7 @@ class TemplateEngine:
         else:
             data = model.__dict__
 
-        return self.renderer.render(template, data)
+        return self.renderer.render(template, dict(data))
 
     def validate(self, model: AbstractTemplateModel) -> None:
         """

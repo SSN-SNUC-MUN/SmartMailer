@@ -1,8 +1,8 @@
-import smtplib
+import asyncio
+import aiosmtplib
+
 import re
 import os
-import time
-import sys
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
@@ -90,11 +90,22 @@ class MailSender:
                 except Exception as e:
                     self.logger.warning(f"Couldn't attach file '{file_path}': {e}")
         return msg
+    
+    async def _create_smtp_connection(self) -> aiosmtplib.SMTP:
+        smtp = aiosmtplib.SMTP(
+            hostname=self.smtp_server,
+            port=self.smtp_port,
+            use_tls=False,
+        )
+        await smtp.connect()
+        await smtp.starttls()
+        await smtp.login(self.sender_email, self.password)
+        return smtp
         
-
-    def send_individual_mail(
+            
+    async def _send_individual_mail(
         self,
-        server: smtplib.SMTP,
+        smtp: aiosmtplib.SMTP,
         to_email: str,
         subject: Optional[str] = None,
         text_content: Optional[str] = None,
@@ -120,9 +131,7 @@ class MailSender:
             bcc=bcc)
 
         try:
-            server.sendmail(self.sender_email,
-                            [to_email] + (cc or []) + (bcc or []), 
-                            msg.as_string())
+            await smtp.send_message(msg)
             self.logger.info(f"Email sent to {to_email} successfully.")
             return True
         except Exception as e:
@@ -151,83 +160,113 @@ class MailSender:
         show_preview: bool = True,
         preview_timer: int = 5
     ) -> None:
-        server = None
-        server_closed = False
-        try:
-            server = smtplib.SMTP(self.smtp_server, self.smtp_port)
-            server.starttls()
-            server.login(self.sender_email, self.password)
-            self.logger.info(f"Connected to SMTP server {self.smtp_server} as {self.sender_email}")
-        
-            if show_preview and recipients:
-                first = recipients[0]
-                self.preview_email(first, timer= preview_timer)
-                if preview_timer and preview_timer > 0:
-                    try:
-                        time.sleep(preview_timer)
-                    except KeyboardInterrupt:
-                        self.logger.info("Email sending canceled by user.")
-                        if server and not server_closed:
-                            server.quit()
-                            self.logger.info("SMTP server connection closed.")
-                            server_closed = True
-                        sys.exit(0)
+        asyncio.run(
+            self._send_bulk_mail_async(
+                recipients,
+                session_manager,
+                attachment_paths,
+                cc,
+                bcc,
+                show_preview,
+                preview_timer,
+            )
+        )
 
-            for row in recipients:
-                    try:
-                        object: TemplateModelType = row['object'] # type: ignore
-                        to_email = row.get("to_email")
-                        subject = row.get("subject")
-                        text = row.get("text_content")
-                        html = row.get("html_content")
-                        r_attachment_paths = row.get("attachments", attachment_paths)
-                        r_cc = row.get("cc", cc)
-                        r_bcc = row.get("bcc", bcc)
 
-                        if not to_email:
-                            self.logger.error("Recipient email address is missing.")
-                            continue
+    async def _send_bulk_mail_async(
+        self,
+        recipients: List[Dict[str, Any]],
+        session_manager: SessionManager,
+        attachment_paths: Optional[List[str]],
+        cc: Optional[List[str]],
+        bcc: Optional[List[str]],
+        show_preview: bool,
+        preview_timer: int,
+    ) -> None:
 
-                    
-                        sent = self.send_individual_mail(
-                                server=server,
-                                to_email=to_email,
-                                subject=subject,
-                                text_content=text,
-                                html_content=html,
-                                attachment_paths=r_attachment_paths,
-                                cc=r_cc,
-                                bcc=r_bcc
-                        )
+        if show_preview and recipients:
+            first = recipients[0]
+            self.preview_email(first, timer=preview_timer)
+            if preview_timer and preview_timer > 0:
+                await asyncio.sleep(preview_timer)
 
-                        if sent and session_manager:
-                            session_manager.add_recipient(object)
+        pool_size = 5
+        semaphore = asyncio.Semaphore(pool_size)
+        connection_queue: asyncio.Queue[aiosmtplib.SMTP] = asyncio.Queue()
 
-                        if not sent:
-                            self.logger.warning(f"Couldn't send email to {to_email}.")
+        self.logger.info(f"Creating SMTP connection pool of size {pool_size}")
 
-                    except KeyboardInterrupt:
-                        self.logger.info("Email sending canceled by user.")
-                        if server and not server_closed:
-                            server.quit()
-                            self.logger.info("SMTP server connection closed.")
-                            server_closed = True
-                        sys.exit(0)
+        for _ in range(pool_size):
+            smtp = await self._create_smtp_connection()
+            await connection_queue.put(smtp)
 
-                    except Exception as e:
-                        self.logger.error(f"Error during email sending: {e}")
-                        continue
+        self.logger.info("SMTP connection pool ready.")
 
-        except KeyboardInterrupt:
-            self.logger.info("Email sending canceled by user.")
-        except Exception as e:
-            self.logger.error(f"Error connecting to server: {e}")
-        finally:
-            if server and not server_closed:
+        async def worker(row: Dict[str, Any]):
+
+            to_email = row.get("to_email")
+            if not isinstance(to_email, str):
+                self.logger.error(f"Invalid 'to_email': {to_email}. Skipping.")
+                return
+
+            async with semaphore:
+                smtp = await connection_queue.get()
+
                 try:
-                    server.quit()
-                    self.logger.info("SMTP server connection closed.")
+
+                    recipients_list = [to_email]
+
+                    row_cc = row.get("cc", cc)
+                    row_bcc = row.get("bcc", bcc)
+
+                    if row_cc:
+                        recipients_list.extend(row_cc)
+                    if row_bcc:
+                        recipients_list.extend(row_bcc)
+
+
+                    msg = self.prepare_message(
+                        to_email=to_email,
+                        subject=row.get("subject"),
+                        text_content=row.get("text_content"),
+                        html_content=row.get("html_content"),
+                        attachment_paths=row.get("attachments", attachment_paths),
+                        cc=row_cc,
+                        bcc=None,
+                    )
+
+                    await smtp.send_message(msg, recipients=recipients_list)
+
+                    self.logger.info(f"Email sent to {to_email} successfully.")
+
+                    if session_manager:
+                        session_manager.add_recipient(row["object"])
+
                 except Exception as e:
-                    self.logger.error(f"Error closing SMTP server connection: {e}")
+                    self.logger.error(f"Error sending email to {to_email}: {e}")
+
+                    try:
+                        await smtp.quit()
+                    except Exception:
+                        pass
+
+                    smtp = await self._create_smtp_connection()
+
                 finally:
-                    sys.exit(0)
+                    await connection_queue.put(smtp)
+
+
+        tasks = [worker(row) for row in recipients]
+        await asyncio.gather(*tasks)
+
+
+        self.logger.info("Closing SMTP connection pool.")
+
+        while not connection_queue.empty():
+            smtp = await connection_queue.get()
+            try:
+                await smtp.quit()
+            except Exception:
+                pass
+
+        self.logger.info("All SMTP connections closed.")

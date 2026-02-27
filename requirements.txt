@@ -1,3 +1,5 @@
 sqlalchemy
 tabulate
 pydantic>=2.0
+aiosmtplib
+jinja2

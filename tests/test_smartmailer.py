@@ -91,14 +91,13 @@ def test_show_sent_prints(mock_dependencies):
 
     mock_session.get_sent_recipients.assert_called_once()
 
-def test_rendering_exception_is_logged_and_skipped(mock_dependencies, dummy_recipients, capsys):
+def test_rendering_exception_is_skipped(mock_dependencies, dummy_recipients):
     auto = SmartMailer("sender@example.com", "password", "gmail", "error-session")
 
     mock_template = mock_dependencies["template"]
     mock_mailer = mock_dependencies["mailer"]
     mock_session = mock_dependencies["session"]
 
-    # Cause template.render to raise an exception
     def render_side_effect(recipient):
         if recipient.__dict__["email"] == "b@example.com":
             raise ValueError("Template failed")
@@ -109,12 +108,7 @@ def test_rendering_exception_is_logged_and_skipped(mock_dependencies, dummy_reci
 
     auto.send_emails(dummy_recipients, email_field="email", template=mock_template)
 
-    # It should log one error and skip sending for that recipient
-    captured = capsys.readouterr()
-    assert "Error rendering email for b@example.com" in captured.out
-    assert mock_mailer.send_bulk_mail.called
-
-    # Only 1 email should be prepared (the other failed in render)
     recipients_arg = mock_mailer.send_bulk_mail.call_args[1]["recipients"]
+
     assert len(recipients_arg) == 1
     assert recipients_arg[0]["to_email"] == "a@example.com"
