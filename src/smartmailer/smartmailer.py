@@ -37,13 +37,12 @@ class SmartMailer:
         preview_count: int = 5
     ):
 
-        sent = self.session_manager.filter_sent_recipients(recipients)
+        # Skip anything already recorded for this session, *before* rendering,
+        # so a retry after a crash resumes where it stopped.
+        unsent = self.session_manager.filter_unsent_recipients(recipients)
         rendered_emails = []
 
-        for recipient in recipients:
-            if recipient in sent:
-                continue
-
+        for recipient in unsent:
             try:
                 rendered = template.render(recipient)
             except Exception as e:
@@ -62,8 +61,12 @@ class SmartMailer:
                 "bcc": recipient.__dict__.get(bcc_field) or [],
             })
 
+        if not unsent:
+            self.logger.info("No emails to send: every recipient was already recorded for this session")
+            return
+
         if not rendered_emails:
-            self.logger.info("No emails to send")
+            self.logger.info("No emails could be rendered; nothing to send")
             return
 
         self.mailer.send_bulk_mail(

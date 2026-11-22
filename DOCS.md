@@ -9,20 +9,27 @@ The main purpose of this library is to streamline and standardize template usage
 
 ### Install the Library
 
-The process is not as straightforward as "pip install smartmailer", and we're working on it!
-
-Until then,
+The latest version lives in the Git repository
+[`SSN-SNUC-MUN/SmartMailer`](https://github.com/SSN-SNUC-MUN/SmartMailer).
+Install straight from Git rather than PyPI, which may lag behind or differ from
+what is on `main`:
 
 ```shell
-pip install sqlalchemy tabulate pydantic jinja2
-
-pip install -i https://test.pypi.org/simple/ smartmailer==0.0.3
+pip install "git+https://github.com/SSN-SNUC-MUN/SmartMailer.git"
 ```
 
-Or,
+To also install the test tooling, or to work on the library itself:
 
 ```shell
-pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ smartmailer
+git clone https://github.com/SSN-SNUC-MUN/SmartMailer.git
+cd SmartMailer
+pip install -e ".[test]"
+```
+
+If you keep dependencies in a `requirements.txt`, the Git URL works there too:
+
+```text
+smartmailer @ git+https://github.com/SSN-SNUC-MUN/SmartMailer.git
 ```
 
 ### Gmail App Password Setup
@@ -47,12 +54,19 @@ To send emails using Gmail, you need to generate an **App Password** instead of 
 ### Importing and Using the Library
 
 ```python
-from smartmailer import SmartMailer, TemplateModel, TemplateEngine
-from smartmailer.core.template import JinjaTemplateParser, JinjaTemplateRenderer, TemplateValidator
+from smartmailer import (
+    JinjaTemplateParser,
+    JinjaTemplateRenderer,
+    SmartMailer,
+    TemplateModel,
+    TemplateEngine,
+    TemplateValidator,
+)
 from jinja2 import Environment
-
 ```
 
+Every public name is also importable from the package root, so
+`from smartmailer import JinjaTemplateParser` works too.
 After importing, we need to define a schema for our data model.
 This MySchema class inherits from TemplateModel.
 
@@ -201,7 +215,42 @@ smartmailer.send_emails(
 )
 ```
 
-And we're done!
+## Session Management and Duplicate Prevention
+
+`session_name` names a session. SmartMailer records every recipient it successfully
+sends to in a small SQLite database at
+`mail_sessions/<session_name>-<hash>.db`, relative to the current working directory.
+
+On each run, recipients already recorded for that session are skipped **before
+their templates are rendered**, so rerunning the same script after a crash or an
+interruption continues where it stopped instead of emailing anyone twice. If every
+recipient has already been sent, `send_emails` logs "No emails to send" and returns
+without contacting the SMTP server.
+
+```python
+# First run sends to everyone. If it stops after 400 of 500 recipients, simply
+# rerun the identical script: only the remaining 100 are sent.
+smartmailer.send_emails(
+    recipients=obj_recipients,
+    email_field="email",
+    template=template
+)
+
+# Inspect what has been recorded for this session
+smartmailer.show_sent()
+```
+
+Notes:
+
+- The record is per **session**, not per email address. Reusing a `session_name`
+  for a new batch skips addresses that batch already contains. Use a new
+  `session_name` (for example, one including the campaign name and date) for each
+  new batch.
+- A recipient's identity is derived from **all** of its schema fields. Changing a
+  field that is part of the record (for example, appending a timestamp) makes it a
+  new recipient as far as session tracking is concerned.
+- To deliberately start over, delete the `mail_sessions/` folder or use a new
+  `session_name`.
 
 ## Adding CC, BCC, and Attachments
 

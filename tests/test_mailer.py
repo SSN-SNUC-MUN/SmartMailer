@@ -27,6 +27,15 @@ def test_invalid_sender_email():
         MailSender("invalid-email", "password", "gmail")
 
 
+def test_invalid_provider_raises_value_error():
+    with pytest.raises(ValueError, match="Invalid provider"):
+        MailSender("sender@gmail.com", "password", "not-a-provider")
+
+
+def test_provider_settings_are_applied(mailer):
+    assert (mailer.smtp_server, mailer.smtp_port) == ("smtp.gmail.com", 587)
+
+
 def test_validate_valid_email(mailer):
     assert mailer._is_valid_email("user@gmail.com")
 

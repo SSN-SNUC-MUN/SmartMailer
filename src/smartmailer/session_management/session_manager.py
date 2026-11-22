@@ -1,4 +1,3 @@
-from tabulate import tabulate
 from typing import List, Dict, Any
 from smartmailer.session_management.db_operator import DBOperator
 from smartmailer.utils.strings import get_os_safe_name
@@ -32,18 +31,27 @@ class SessionManager:
         # Initialize database operator
         self.db_op = DBOperator(self.dbfile_path)
     
-    #Filter the recipients whose email wasn't sent in the previous run
-    def _filter_unsent_recipients(self, recipients: List[TemplateModelType]) -> List[TemplateModelType]:
-        unsent_recipients: List[TemplateModelType] = []
-        for recipient in recipients:
-            recipient_hash = recipient.hash_string
-            if not self.db_op.check_recipient_sent(recipient_hash):
-                unsent_recipients.append(recipient)
-        return unsent_recipients
-    
+    def filter_unsent_recipients(self, recipients: List[TemplateModelType]) -> List[TemplateModelType]:
+        """Return only recipients that have not already been recorded for this session.
+
+        Reads the recorded hashes once via get_sent_recipients() (a single DB
+        query) instead of one query per recipient, which matters for large
+        sends. The set is captured up front, so recipients added mid-run are
+        not double-counted; the buffer is consulted by add_recipient().
+        """
+        already_sent = {
+            row["recipient_hash"] for row in self.db_op.get_sent_recipients()
+        }
+        return [
+            recipient
+            for recipient in recipients
+            if recipient.hash_string not in already_sent
+        ]
+
+    # Backwards-compatible name. It returns *unsent* recipients; the old name
+    # read like the opposite and hid the bug in SmartMailer.send_emails.
     def filter_sent_recipients(self, recipients: List[TemplateModelType]) -> List[TemplateModelType]:
-        sent: List[str] = [r['recipient_hash'] for r in self.db_op.get_sent_recipients()]
-        return [recipient for recipient in recipients if recipient.hash_string in sent]
+        return self.filter_unsent_recipients(recipients)
     
     def get_sent_recipients(self) -> List[Dict[str, Any]]:
         return self.db_op.get_sent_recipients()

@@ -14,7 +14,12 @@ from smartmailer.utils.new_logger import Logger
 from smartmailer.utils.types import TemplateModelType
 
 class MailSender:
-    def __init__(self, sender_email: str, password: str, provider: str = "gmail") -> None:
+    def __init__(
+        self,
+        sender_email: str,
+        password: str,
+        provider: str = "gmail",
+    ) -> None:
         self.logger = Logger()
         
         self._validate_email(sender_email)
