@@ -5,18 +5,23 @@ from smartmailer.utils.new_logger import Logger
 
 
 class DBOperator:
-    """Buffered singleton wrapper for Database operations."""
+    """Buffered, per-database-path wrapper for Database operations.
 
-    _instance: Optional["DBOperator"] = None
+    One instance is shared per database file (not globally): two sessions in the
+    same process must not write into each other's database.
+    """
+
+    _instances: Dict[str, "DBOperator"] = {}
     _init_lock = threading.Lock()
 
     def __new__(cls, dbfile_path: str) -> "DBOperator":
         with cls._init_lock:
-            if cls._instance is None:
+            instance = cls._instances.get(dbfile_path)
+            if instance is None:
                 instance = object.__new__(cls)
                 instance._initialized = False
-                cls._instance = instance
-        return cls._instance
+                cls._instances[dbfile_path] = instance
+        return instance
 
     def __init__(self, dbfile_path: str) -> None:
         # Avoid re-initialization
@@ -24,6 +29,7 @@ class DBOperator:
             return
 
         self.logger = Logger()
+        self.dbfile_path = dbfile_path
         self._db = Database(dbfile_path)
 
         # Initialize buffer and lock
@@ -53,7 +59,9 @@ class DBOperator:
         self._flush_thread.join()
         self._flush()          # one last flush for anything added between the last tick and stop
         self._db.close()
-        DBOperator._instance = None
+        with DBOperator._init_lock:
+            if DBOperator._instances.get(self.dbfile_path) is self:
+                del DBOperator._instances[self.dbfile_path]
         self.logger.info("DBOperator shut down cleanly.")
 
     def _flush_loop(self) -> None:

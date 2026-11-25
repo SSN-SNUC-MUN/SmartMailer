@@ -1,126 +1,105 @@
 # SmartMailer
 
-SmartMailer is a Python library for sending bulk emails with support for templates, attachments, session management, and logging. It is designed for easy integration into your own projects.
-SmartMailer is a Python library for sending bulk emails with support for templates, attachments, session management, and logging. It is designed for easy integration into your own projects.
+SmartMailer is a Python library for sending bulk emails with templated subjects, plain-text and HTML bodies, attachments, CC/BCC, and crash-safe session tracking that stops the same recipient being emailed twice.
 
 ## Features
 
 - Send individual or bulk emails
-- Templated subjects, plain text, and HTML content
+- Templated subjects, plain text, and HTML content (Jinja2)
 - Attachments support
 - CC and BCC support
-- Session management to avoid duplicate sends
+- Session management to avoid duplicate sends, including resuming after a crash
 - Logging for all actions
+
+## Installation
+
+Install the latest version from the Git repository
+([`SSN-SNUC-MUN/SmartMailer`](https://github.com/SSN-SNUC-MUN/SmartMailer)),
+which is ahead of PyPI:
+
+```shell
+pip install "git+https://github.com/SSN-SNUC-MUN/SmartMailer.git"
+```
+
+For development from this repository:
+
+```shell
+git clone https://github.com/SSN-SNUC-MUN/SmartMailer.git
+cd SmartMailer
+pip install -e ".[test]"
+```
+
+### Gmail
+
+Gmail requires an **App Password** — your normal account password will not work over SMTP.
+Enable 2-Step Verification, then create one at <https://myaccount.google.com/apppasswords>.
+
+```shell
+export SMARTPASSWORD='your-16-char-app-password'
+```
+
+Pass it as `password`. Never hardcode it in source.
 
 ## Quickstart
 
-Visit [The Documentation Page](https://github.com/Mahasvan/SmartMailer/blob/main/DOCS.md)
-
-<!-- 
-## Installation
-
-Install via pip (after building your package):
-
-```
-pip install .
-```
-
-Or add to your `requirements.txt` if published to PyPI:
-
-```
-SmartMailer
-```
-
-## Requirements
-
-- Python 3.10+
-- `sqlalchemy`
-- `tabulate`
-- `pydantic` -->
-<!-- 
-## Quick Start
-
-
-### 1. Prepare your settings
-
-Edit `SmartMailer/core/settings.json` to include your SMTP provider details:
-
-```json
-{
-    "gmail": ["smtp.gmail.com", 587],
-    "outlook": ["smtp.office365.com", 587]
-}
-```
-
-### 2. Example Usage
-
 ```python
-from SmartMailer.smartmailer import SmartMailer
+import os
 
-# Define your sender credentials and session name
-sender_email = "your_email@gmail.com"
-password = "your_password"
-provider = "gmail"
-session_name = "june_campaign"
+from jinja2 import Environment
 
-# Create a SmartMailer instance
-mailer = SmartMailer(sender_email, password, provider, session_name)
-
-# Prepare your recipient list (must include 'email' key)
-recipients = [
-    {"email": "recipient1@example.com", "name": "Alice"},
-    {"email": "recipient2@example.com", "name": "Bob"}
-]
-
-# Define your templates
-subject_template = "Hello, {name}!"
-text_template = "Dear {name},\nThis is a plain text email."
-html_template = "<p>Dear {name},</p><p>This is an <b>HTML</b> email.</p>"
-
-# Optional: Attachments, CC, BCC
-attachments = ["path/to/file.pdf"]
-cc = ["cc@example.com"]
-bcc = ["bcc@example.com"]
-
-# Send emails
-mailer.send_emails(
-    recipients=recipients,
-    subject_template=subject_template,
-    text_template=text_template,
-    html_template=html_template,
-    attachment_paths=attachments,
-    cc=cc,
-    bcc=bcc
+from smartmailer import (
+    JinjaTemplateParser,
+    JinjaTemplateRenderer,
+    SmartMailer,
+    TemplateEngine,
+    TemplateModel,
+    TemplateValidator,
 )
 
-# Show sent recipients
-mailer.show_sent()
+
+class Recipient(TemplateModel):
+    name: str
+    email: str          # must hold the destination address
+
+
+env = Environment()
+template = TemplateEngine(
+    parser=JinjaTemplateParser(env),
+    validator=TemplateValidator(),
+    renderer=JinjaTemplateRenderer(env),
+    subject="Hello {{ name }}",
+    text="Dear {{ name }}, this is a test.",
+    html="<p>Dear <b>{{ name }}</b>, this is a test.</p>",
+)
+
+recipients = [
+    Recipient(name="Alice", email="alice@example.com"),
+    Recipient(name="Bob", email="bob@example.com"),
+]
+
+mailer = SmartMailer(
+    sender_email="you@gmail.com",
+    password=os.environ["SMARTPASSWORD"],
+    provider="gmail",          # "gmail" or "outlook"
+    session_name="june_campaign",
+)
+
+mailer.send_emails(recipients=recipients, email_field="email", template=template)
 ```
 
-### 3. Template Placeholders
+Full documentation, including attachments, CC/BCC and filters: [DOCS.md](DOCS.md).
 
-You can use any key from your recipient dictionary as a placeholder in your templates, e.g. `{name}`.
+## Session management
 
-### 4. Session Management
-
-SmartMailer tracks which recipients have already been emailed in a session. If you run the script again with the same session name, only new recipients will be emailed.
-
-## Logging
-
-Logs are handled via the built-in logger and will output to the console. -->
-
-
-## So why should I use this library?
-
-The beauty of SmartMailer is that if your machine has an outage halfway through sending, there is no need to change the script in any way.
-You need **no extra configuration** to prevent an email from sending to the same recipient twice.
-
-Just run the script again, with no changes, and our inbuilt progress management system will take care of the rest.
+Sent recipients are recorded in `mail_sessions/<session_name>-<hash>.db` under the
+current working directory. Rerunning the same script after a crash resumes where
+it stopped: recipients already recorded are skipped before any email is rendered
+or sent. Delete the `mail_sessions/` folder (or use a new `session_name`) to start
+a fresh run.
 
 ## License
 
-[MIT License](https://github.com/Mahasvan/SmartMailer/blob/main/LICENSE)
-
+[MIT License](LICENSE)
 
 ## Credits
 
@@ -129,7 +108,5 @@ This project was brought to life by a squad in the Tech Team of [SSN-SNUC MUN 20
 - [Nilaa](http://github.com/nil-aa)
 - [Kamlesh](http://github.com/Kamlesh-DevOP)
 - [Sharon](http://github.com/sharonprabhu11)
-- [Nitin Karthick](https://github.com/yukii1004)
+- [Nitin Karthick](http://github.com/yukii1004)
 - [Mahasvan](http://github.com/Mahasvan)
-
-**Note:** Never hardcode your email password in production code. Use environment variables or secure vaults.

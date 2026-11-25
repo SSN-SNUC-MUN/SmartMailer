@@ -42,7 +42,7 @@ def test_send_emails_filters_and_renders(mock_dependencies, dummy_recipients):
     mock_template = mock_dependencies["template"]
 
     # Pretend no recipients have been sent
-    mock_session.filter_sent_recipients.return_value = []
+    mock_session.filter_unsent_recipients.return_value = dummy_recipients
 
     mock_template.render.side_effect = lambda r: {
         "subject": f"Hello {r.__dict__['email']}",
@@ -68,7 +68,7 @@ def test_send_emails_skips_sent_recipients(mock_dependencies, dummy_recipients):
     mock_template = mock_dependencies["template"]
 
     # Pretend first recipient already sent
-    mock_session.filter_sent_recipients.return_value = [dummy_recipients[0]]
+    mock_session.filter_unsent_recipients.return_value = [dummy_recipients[1]]
 
     auto.send_emails(recipients=dummy_recipients, email_field="email", template=mock_template)
 
@@ -104,7 +104,7 @@ def test_rendering_exception_is_skipped(mock_dependencies, dummy_recipients):
         return {"subject": "Ok", "text": "Body"}
 
     mock_template.render.side_effect = render_side_effect
-    mock_session.filter_sent_recipients.return_value = []
+    mock_session.filter_unsent_recipients.return_value = dummy_recipients
 
     auto.send_emails(dummy_recipients, email_field="email", template=mock_template)
 
@@ -112,3 +112,27 @@ def test_rendering_exception_is_skipped(mock_dependencies, dummy_recipients):
 
     assert len(recipients_arg) == 1
     assert recipients_arg[0]["to_email"] == "a@example.com"
+
+
+def test_send_emails_sends_nothing_when_all_already_sent(mock_dependencies, dummy_recipients):
+    """The dedupe bug: a retry must not resend anything, and must not call the mailer."""
+    auto = SmartMailer("sender@example.com", "password", "gmail", "testsession")
+    mock_session = mock_dependencies["session"]
+    mock_mailer = mock_dependencies["mailer"]
+
+    mock_session.filter_unsent_recipients.return_value = []
+
+    auto.send_emails(recipients=dummy_recipients, email_field="email", template=mock_dependencies["template"])
+
+    mock_mailer.send_bulk_mail.assert_not_called()
+
+
+def test_send_emails_uses_unsent_filter_not_the_whole_list(mock_dependencies, dummy_recipients):
+    """Every recipient must pass through the session filter before rendering."""
+    auto = SmartMailer("sender@example.com", "password", "gmail", "testsession")
+    mock_session = mock_dependencies["session"]
+    mock_session.filter_unsent_recipients.return_value = dummy_recipients
+
+    auto.send_emails(recipients=dummy_recipients, email_field="email", template=mock_dependencies["template"])
+
+    mock_session.filter_unsent_recipients.assert_called_once_with(dummy_recipients)

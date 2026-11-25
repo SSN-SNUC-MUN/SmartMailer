@@ -1,28 +1,60 @@
 [build-system]
-requires = ["hatchling >= 1.26", "sqlalchemy", "tabulate", "pydantic>=2.0"]
+requires = ["hatchling >= 1.26"]
 build-backend = "hatchling.build"
 
 [project]
 name = "smartmailer"
 version = "1.0.0"
 dependencies = [
-    "sqlalchemy",
-    "tabulate",
+    "aiosmtplib>=3.0",
+    "jinja2>=3.0",
     "pydantic>=2.0",
+    "sqlalchemy>=2.0",
 ]
 authors = [{ name = "Mahasvan", email = "mahasvan@gmail.com" }]
 description = "An email automation service that incorporates templates and state tracking for sending emails en masse."
 readme = "README.md"
 requires-python = ">=3.9"
+keywords = ["email", "smtp", "bulk-email", "templates", "jinja2", "gmail"]
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
+    "Topic :: Communications :: Email",
+    "Typing :: Typed",
 ]
 license = "MIT"
 license-files = ["LICENSE"]
 
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+    "pytest-cov>=4.0",
+]
 
 [project.urls]
-Homepage = "https://github.com/Mahasvan/SmartMailer/"
-Issues = "https://github.com/Mahasvan/SmartMailer/issues"
+Homepage = "https://github.com/SSN-SNUC-MUN/SmartMailer"
+Repository = "https://github.com/SSN-SNUC-MUN/SmartMailer"
+Documentation = "https://github.com/SSN-SNUC-MUN/SmartMailer/blob/main/DOCS.md"
+Issues = "https://github.com/SSN-SNUC-MUN/SmartMailer/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/smartmailer"]
+
+# settings.json is read at runtime via __file__, so it must ship in wheels.
+[tool.hatch.build.targets.wheel.force-include]
+"src/smartmailer/core/settings.json" = "smartmailer/core/settings.json"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "--cov=smartmailer --cov-report=term-missing"
+testpaths = ["tests"]
+pythonpath = ["src"]
+asyncio_default_fixture_loop_scope = "function"

@@ -67,24 +67,39 @@ def test_get_sent_recipients_delegates_to_db(session_manager, mock_db_op):
     mock_db_op.get_sent_recipients.assert_called_once()
 
 
-def test_filter_sent_recipients(session_manager, mock_db_op, dummy_recipients):
-    # DB says hash1 and hash2 are sent
+def test_filter_unsent_recipients(session_manager, mock_db_op, dummy_recipients):
+    # DB says hash1 is already sent
     mock_db_op.get_sent_recipients.return_value = [
         {"recipient_hash": "hash1"},
-        {"recipient_hash": "hash2"}
     ]
 
-    result = session_manager.filter_sent_recipients(dummy_recipients)
+    result = session_manager.filter_unsent_recipients(dummy_recipients)
     result_hashes = [r.hash_string for r in result]
 
-    assert set(result_hashes) == {"hash1", "hash2"}
+    assert result_hashes == ["hash0", "hash2"]
 
 
-def test__filter_unsent_recipients(session_manager, mock_db_op, dummy_recipients):
-    # Simulate that only hash0 and hash2 are unsent
-    mock_db_op.check_recipient_sent.side_effect = lambda h: h == "hash1"
+def test_filter_sent_recipients_is_backwards_compatible_alias(session_manager, mock_db_op, dummy_recipients):
+    mock_db_op.get_sent_recipients.return_value = [{"recipient_hash": "hash1"}]
 
-    result = session_manager._filter_unsent_recipients(dummy_recipients)
-    result_hashes = [r.hash_string for r in result]
+    alias = session_manager.filter_sent_recipients(dummy_recipients)
+    canonical = session_manager.filter_unsent_recipients(dummy_recipients)
 
-    assert set(result_hashes) == {"hash0", "hash2"}
+    assert [r.hash_string for r in alias] == [r.hash_string for r in canonical]
+
+
+def test_filter_unsent_returns_all_for_first_run(session_manager, mock_db_op, dummy_recipients):
+    # The bug: an empty database must yield every recipient, not none.
+    mock_db_op.get_sent_recipients.return_value = []
+
+    result = session_manager.filter_unsent_recipients(dummy_recipients)
+
+    assert len(result) == len(dummy_recipients)
+
+
+def test_filter_unsent_returns_nothing_when_all_sent(session_manager, mock_db_op, dummy_recipients):
+    mock_db_op.get_sent_recipients.return_value = [
+        {"recipient_hash": f"hash{i}"} for i in range(3)
+    ]
+
+    assert session_manager.filter_unsent_recipients(dummy_recipients) == []
